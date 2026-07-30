@@ -1,6 +1,6 @@
 {
   "name": "debash",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Минималистичный AI-помощник для терминала",
   "type": "module",
   "bin": {
