@@ -21,7 +21,7 @@ function printBlock(type, text) {
 }
 
 console.log();
-console.log(pc.bold("❚█══debash══█❚"));
+console.log(pc.bold("▌║█║▌│║▌│║▌║▌█║ debash ▌│║▌║▌│║║▌█║▌║█"));
 console.log();
 
 const apiKey = await getApiKey();
