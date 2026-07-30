@@ -22,6 +22,39 @@ export const bashTool = {
   },
 };
 
+export const saveRecipeTool = {
+  type: "function",
+  function: {
+    name: "save_recipe",
+    description:
+      "Сохраняет проверенную последовательность команд для повторного использования в будущих " +
+      "сессиях debash в этом же проекте. Используй только после того, как команды реально успешно " +
+      "выполнились и достигли цели пользователя — не сохраняй неудачные попытки.",
+    parameters: {
+      type: "object",
+      properties: {
+        intent: {
+          type: "string",
+          description:
+            "Краткое описание задачи на естественном языке, например " +
+            "'подготовка после смены git-ветки'",
+        },
+        commands: {
+          type: "array",
+          items: { type: "string" },
+          description: "Упорядоченный список команд bash",
+        },
+        note: {
+          type: "string",
+          description:
+            "Необязательная заметка: чем команды отличаются от README/CLAUDE.md, важные нюансы",
+        },
+      },
+      required: ["intent", "commands"],
+    },
+  },
+};
+
 const DANGEROUS_PATTERNS = [
   { label: "rm", regex: /(^|[|;&]|\s)rm\s+/i },
   { label: "git reset", regex: /\bgit\s+reset\b/i },

@@ -3,8 +3,9 @@
 import readline from "node:readline";
 import { getApiKey } from "../src/config.js";
 import { sendMessage } from "../src/deepseek.js";
-import { bashTool, runBashCommand, findDangerousMatch } from "../src/tools.js";
+import { bashTool, saveRecipeTool, runBashCommand, findDangerousMatch } from "../src/tools.js";
 import { loadProjectContext } from "../src/context.js";
+import { loadCache, saveRecipe } from "../src/cache.js";
 
 const line = "─".repeat(42);
 
@@ -33,7 +34,15 @@ const history = [
       "README/CLAUDE/AGENTS/DEBASH.md — используй его; дополнительно проверь структуру каталогов и " +
       "файлы вроде Makefile, docker-compose.yml, package.json, если это важно для задачи. " +
       "Предпочитай уже существующие в проекте способы (make-таргеты, npm-скрипты и т.п.) собственным " +
-      "придуманным командам. Работай относительно текущей рабочей директории. Отвечай кратко и по делу.",
+      "придуманным командам. Если выше уже есть рецепты из прошлых debash-сессий для похожей задачи — " +
+      "сразу используй их, не исследуй проект заново. Правило про save_recipe: если для ответа на " +
+      "запрос пользователя тебе пришлось сначала посмотреть на файлы проекта (Makefile, package.json, " +
+      "docker-compose.yml и т.п.), чтобы понять, какую команду выполнить — обязательно вызови " +
+      "save_recipe после успешного результата, даже если сама финальная команда одна. Важно не число " +
+      "команд, а то, что в следующий раз это не придётся выяснять заново. Не вызывай save_recipe, " +
+      "только если пользователь сам явно назвал нужную команду и исследовать было нечего. " +
+      "Не сохраняй неудачные попытки. Работай относительно текущей рабочей директории. " +
+      "Отвечай кратко и по делу.",
   },
 ];
 
@@ -45,9 +54,18 @@ if (contextFiles.length > 0) {
 } else {
   console.log("Изучаю проект: README/CLAUDE/AGENTS/DEBASH.md не найдены, буду исследовать по ходу работы.");
 }
+
+const cacheContent = await loadCache();
+if (cacheContent) {
+  history.push({
+    role: "system",
+    content: `Рецепты команд, проверенные в предыдущих debash-сессиях в этом проекте:\n\n${cacheContent}`,
+  });
+  console.log("Найден кэш рецептов из предыдущих сессий debash для этого проекта.");
+}
 console.log();
 
-const tools = [bashTool];
+const tools = [bashTool, saveRecipeTool];
 const MAX_STEPS = 10;
 
 let pendingConfirmationResolve = null;
@@ -72,7 +90,20 @@ async function runTurn() {
     }
 
     for (const toolCall of message.tool_calls) {
-      const { command } = JSON.parse(toolCall.function.arguments);
+      const args = JSON.parse(toolCall.function.arguments);
+
+      if (toolCall.function.name === "save_recipe") {
+        await saveRecipe(args.intent, args.commands, args.note);
+        console.log(`✓ Рецепт сохранён: ${args.intent}`);
+        history.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: "Рецепт сохранён.",
+        });
+        continue;
+      }
+
+      const { command } = args;
       console.log(`→ ${command}`);
 
       const danger = findDangerousMatch(command);
