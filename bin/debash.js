@@ -4,6 +4,7 @@ import readline from "node:readline";
 import { getApiKey } from "../src/config.js";
 import { sendMessage } from "../src/deepseek.js";
 import { bashTool, runBashCommand, findDangerousMatch } from "../src/tools.js";
+import { loadProjectContext } from "../src/context.js";
 
 const line = "─".repeat(42);
 
@@ -28,9 +29,23 @@ const history = [
     content:
       "Ты — debash, минималистичный консольный помощник разработчика. " +
       "Если для ответа нужно что-то проверить или выполнить в проекте — используй инструмент bash. " +
-      "Работай относительно текущей рабочей директории. Отвечай кратко и по делу.",
+      "Перед тем как предлагать или выполнять команды, изучи проект: если выше уже есть содержимое " +
+      "README/CLAUDE/AGENTS/DEBASH.md — используй его; дополнительно проверь структуру каталогов и " +
+      "файлы вроде Makefile, docker-compose.yml, package.json, если это важно для задачи. " +
+      "Предпочитай уже существующие в проекте способы (make-таргеты, npm-скрипты и т.п.) собственным " +
+      "придуманным командам. Работай относительно текущей рабочей директории. Отвечай кратко и по делу.",
   },
 ];
+
+const { messages: contextMessages, found: contextFiles } = await loadProjectContext();
+history.push(...contextMessages);
+
+if (contextFiles.length > 0) {
+  console.log(`Изучаю проект: найдено ${contextFiles.join(", ")}`);
+} else {
+  console.log("Изучаю проект: README/CLAUDE/AGENTS/DEBASH.md не найдены, буду исследовать по ходу работы.");
+}
+console.log();
 
 const tools = [bashTool];
 const MAX_STEPS = 10;
