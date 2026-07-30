@@ -3,6 +3,7 @@
 import readline from "node:readline";
 import { getApiKey } from "../src/config.js";
 import { sendMessage } from "../src/deepseek.js";
+import { bashTool, runBashCommand } from "../src/tools.js";
 
 const line = "─".repeat(42);
 
@@ -24,9 +25,46 @@ if (!apiKey) {
 const history = [
   {
     role: "system",
-    content: "Ты — debash, минималистичный консольный помощник разработчика. Отвечай кратко и по делу.",
+    content:
+      "Ты — debash, минималистичный консольный помощник разработчика. " +
+      "Если для ответа нужно что-то проверить или выполнить в проекте — используй инструмент bash. " +
+      "Работай относительно текущей рабочей директории. Отвечай кратко и по делу.",
   },
 ];
+
+const tools = [bashTool];
+const MAX_STEPS = 10;
+
+async function runTurn() {
+  for (let step = 0; step < MAX_STEPS; step++) {
+    const message = await sendMessage(history, apiKey, tools);
+    history.push(message);
+
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      console.log(message.content);
+      return;
+    }
+
+    for (const toolCall of message.tool_calls) {
+      const { command } = JSON.parse(toolCall.function.arguments);
+      console.log(`→ ${command}`);
+
+      const result = await runBashCommand(command);
+      const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+      if (output) {
+        console.log(output);
+      }
+
+      history.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: `exit code: ${result.exitCode}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+      });
+    }
+  }
+
+  console.log("Слишком много шагов подряд, прерываю.");
+}
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -56,9 +94,7 @@ async function processQueue() {
       history.push({ role: "user", content: text });
 
       try {
-        const reply = await sendMessage(history, apiKey);
-        history.push({ role: "assistant", content: reply });
-        console.log(reply);
+        await runTurn();
       } catch (error) {
         console.log(`Ошибка запроса к DeepSeek: ${error.message}`);
       }

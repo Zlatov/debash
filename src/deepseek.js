@@ -1,7 +1,7 @@
 const API_URL = "https://api.deepseek.com/chat/completions";
 const MODEL = "deepseek-v4-flash";
 
-export async function sendMessage(messages, apiKey) {
+export async function sendMessage(messages, apiKey, tools) {
   const response = await fetch(API_URL, {
     method: "POST",
     headers: {
@@ -11,6 +11,7 @@ export async function sendMessage(messages, apiKey) {
     body: JSON.stringify({
       model: MODEL,
       messages,
+      tools,
       thinking: { type: "disabled" },
     }),
   });
@@ -21,5 +22,5 @@ export async function sendMessage(messages, apiKey) {
   }
 
   const data = await response.json();
-  return data.choices[0].message.content;
+  return data.choices[0].message;
 }
