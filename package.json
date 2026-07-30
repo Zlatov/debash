@@ -6,6 +6,9 @@
   "bin": {
     "debash": "./bin/debash.js"
   },
+  "files": [
+    "bin"
+  ],
   "engines": {
     "node": ">=18"
   },
