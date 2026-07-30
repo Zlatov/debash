@@ -13,8 +13,8 @@ node bin/debash.js
 ./bin/debash.js
 
 # Установка/обновление глобального пакета как у конечного пользователя
-npm install -g debash
-npm update -g debash
+# npm update -g ненадёжен (может не подтянуть новую версию) — использовать install
+npm install -g debash@latest
 
 # npm аккаунт
 npm whoami
