@@ -1,26 +1,27 @@
 #!/usr/bin/env node
 
 import readline from "node:readline";
+import pc from "picocolors";
 import { getApiKey } from "../src/config.js";
 import { sendMessage } from "../src/deepseek.js";
 import { bashTool, saveRecipeTool, runBashCommand, findDangerousMatch } from "../src/tools.js";
 import { loadProjectContext } from "../src/context.js";
 import { loadCache, saveRecipe } from "../src/cache.js";
+import { borderLine, statusIcon, withSpinner } from "../src/ui.js";
+import { renderMarkdown } from "../src/markdown.js";
 
-const line = "─".repeat(42);
-
 console.log();
-console.log(line);
+console.log(borderLine());
 console.log();
-console.log("  Debash");
+console.log(pc.bold("  Debash"));
 console.log();
-console.log(line);
+console.log(borderLine());
 console.log();
 
 const apiKey = await getApiKey();
 
 if (!apiKey) {
-  console.log("Без API-ключа debash не может отвечать. Запустите заново, когда ключ будет готов.");
+  console.log(pc.red("Без API-ключа debash не может отвечать. Запустите заново, когда ключ будет готов."));
   process.exit(1);
 }
 
@@ -50,9 +51,11 @@ const { messages: contextMessages, found: contextFiles } = await loadProjectCont
 history.push(...contextMessages);
 
 if (contextFiles.length > 0) {
-  console.log(`Изучаю проект: найдено ${contextFiles.join(", ")}`);
+  console.log(pc.dim(`Изучаю проект: найдено ${contextFiles.join(", ")}`));
 } else {
-  console.log("Изучаю проект: README/CLAUDE/AGENTS/DEBASH.md не найдены, буду исследовать по ходу работы.");
+  console.log(
+    pc.dim("Изучаю проект: README/CLAUDE/AGENTS/DEBASH.md не найдены, буду исследовать по ходу работы."),
+  );
 }
 
 const cacheContent = await loadCache();
@@ -61,7 +64,7 @@ if (cacheContent) {
     role: "system",
     content: `Рецепты команд, проверенные в предыдущих debash-сессиях в этом проекте:\n\n${cacheContent}`,
   });
-  console.log("Найден кэш рецептов из предыдущих сессий debash для этого проекта.");
+  console.log(pc.dim("Найден кэш рецептов из предыдущих сессий debash для этого проекта."));
 }
 console.log();
 
@@ -72,7 +75,7 @@ let pendingConfirmationResolve = null;
 
 function askConfirmation(command, reason) {
   return new Promise((resolve) => {
-    console.log(`⚠ Похоже на опасную команду (${reason}): ${command}`);
+    console.log(pc.yellow(`⚠ Похоже на опасную команду (${reason}): ${command}`));
     pendingConfirmationResolve = resolve;
     rl.setPrompt("Выполнить? (y/N): ");
     rl.prompt();
@@ -85,7 +88,7 @@ async function runTurn() {
     history.push(message);
 
     if (!message.tool_calls || message.tool_calls.length === 0) {
-      console.log(message.content);
+      console.log(renderMarkdown(message.content));
       return;
     }
 
@@ -94,7 +97,7 @@ async function runTurn() {
 
       if (toolCall.function.name === "save_recipe") {
         await saveRecipe(args.intent, args.commands, args.note);
-        console.log(`✓ Рецепт сохранён: ${args.intent}`);
+        console.log(pc.green(`✔ Рецепт сохранён: ${args.intent}`));
         history.push({
           role: "tool",
           tool_call_id: toolCall.id,
@@ -104,13 +107,13 @@ async function runTurn() {
       }
 
       const { command } = args;
-      console.log(`→ ${command}`);
+      console.log(pc.dim(`→ ${command}`));
 
       const danger = findDangerousMatch(command);
       if (danger) {
         const answer = await askConfirmation(command, danger);
         if (!/^(y|yes|да)$/i.test(answer.trim())) {
-          console.log("Отменено пользователем.");
+          console.log(pc.red("Отменено пользователем."));
           history.push({
             role: "tool",
             tool_call_id: toolCall.id,
@@ -120,7 +123,9 @@ async function runTurn() {
         }
       }
 
-      const result = await runBashCommand(command);
+      const result = await withSpinner(runBashCommand(command));
+      console.log(`${statusIcon(result.exitCode === 0)} ${pc.dim(command)}`);
+
       const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
       if (output) {
         console.log(output);
@@ -134,7 +139,7 @@ async function runTurn() {
     }
   }
 
-  console.log("Слишком много шагов подряд, прерываю.");
+  console.log(pc.red("Слишком много шагов подряд, прерываю."));
 }
 
 const rl = readline.createInterface({
@@ -142,6 +147,11 @@ const rl = readline.createInterface({
   output: process.stdout,
   prompt: "> ",
 });
+
+function promptForInput() {
+  console.log(borderLine());
+  rl.prompt();
+}
 
 const queue = [];
 let processing = false;
@@ -167,17 +177,17 @@ async function processQueue() {
       try {
         await runTurn();
       } catch (error) {
-        console.log(`Ошибка запроса к DeepSeek: ${error.message}`);
+        console.log(pc.red(`Ошибка запроса к DeepSeek: ${error.message}`));
       }
     }
 
-    rl.prompt();
+    promptForInput();
   }
 
   processing = false;
 }
 
-rl.prompt();
+promptForInput();
 
 rl.on("line", (input) => {
   const text = input.trim();
@@ -190,6 +200,7 @@ rl.on("line", (input) => {
     return;
   }
 
+  console.log(borderLine());
   queue.push(text);
   processQueue();
 });
