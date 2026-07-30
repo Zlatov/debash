@@ -1,12 +1,12 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { sanitizeProjectPath } from "./project-path.js";
 
 const CACHE_DIR = path.join(os.homedir(), ".debash", "cache");
 
 function cacheFilePath(cwd) {
-  const safe = cwd.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return path.join(CACHE_DIR, `${safe}.md`);
+  return path.join(CACHE_DIR, `${sanitizeProjectPath(cwd)}.md`);
 }
 
 export async function loadCache(cwd = process.cwd()) {

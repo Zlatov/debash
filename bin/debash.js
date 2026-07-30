@@ -7,7 +7,15 @@ import { sendMessage } from "../src/deepseek.js";
 import { bashTool, saveRecipeTool, runBashCommand, findDangerousMatch } from "../src/tools.js";
 import { loadProjectContext } from "../src/context.js";
 import { loadCache, saveRecipe } from "../src/cache.js";
-import { statusIcon, withSpinner, llmMessage, debashMessage, debashError } from "../src/ui.js";
+import { loadHistory, appendHistory } from "../src/history.js";
+import {
+  withSpinner,
+  withCommandSpinner,
+  llmMessage,
+  debashMessage,
+  debashError,
+  commandCallLine,
+} from "../src/ui.js";
 import { renderMarkdown } from "../src/markdown.js";
 
 let lastBlockType = null;
@@ -18,6 +26,13 @@ function printBlock(type, text) {
   }
   console.log(text);
   lastBlockType = type;
+}
+
+function separateBlock() {
+  if (lastBlockType !== null) {
+    console.log();
+  }
+  lastBlockType = null;
 }
 
 console.log();
@@ -90,6 +105,7 @@ function askConfirmation(command, reason) {
 
 async function runTurn() {
   for (let step = 0; step < MAX_STEPS; step++) {
+    separateBlock();
     const message = await withSpinner(sendMessage(history, apiKey, tools), "думаю...");
     history.push(message);
 
@@ -113,7 +129,6 @@ async function runTurn() {
       }
 
       const { command } = args;
-      printBlock("debash", debashMessage(`→ ${command}`));
 
       const danger = findDangerousMatch(command);
       if (danger) {
@@ -129,8 +144,8 @@ async function runTurn() {
         }
       }
 
-      const result = await withSpinner(runBashCommand(command));
-      printBlock("debash", `${statusIcon(result.exitCode === 0)} ${pc.dim(command)}`);
+      const result = await withCommandSpinner(runBashCommand(command), command);
+      printBlock("debash", commandCallLine(result.exitCode === 0, command));
 
       const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
       if (output) {
@@ -148,17 +163,17 @@ async function runTurn() {
   printBlock("debash", debashError("Слишком много шагов подряд, прерываю."));
 }
 
+const savedHistory = await loadHistory();
+
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
   prompt: "❯ ",
+  history: [...savedHistory].reverse(),
 });
 
 function showNextPrompt() {
-  if (lastBlockType !== null) {
-    console.log();
-  }
-  lastBlockType = null;
+  separateBlock();
   rl.prompt();
 }
 
@@ -181,6 +196,7 @@ async function processQueue() {
     }
 
     if (text) {
+      await appendHistory(text);
       history.push({ role: "user", content: text });
 
       try {

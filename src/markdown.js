@@ -1,8 +1,15 @@
 import pc from "picocolors";
 
+const CODE_COLOR = "\x1b[38;2;140;104;205m";
+const RESET_FG = "\x1b[39m";
+
+function codeColor(text) {
+  return pc.isColorSupported ? `${CODE_COLOR}${text}${RESET_FG}` : text;
+}
+
 function renderInline(text) {
   return text
-    .replace(/`([^`]+)`/g, (_, code) => pc.cyan(code))
+    .replace(/`([^`]+)`/g, (_, code) => codeColor(code))
     .replace(/\*\*(.+?)\*\*/g, (_, bold) => pc.bold(bold))
     .replace(/__(.+?)__/g, (_, bold) => pc.bold(bold))
     .replace(/~~(.+?)~~/g, (_, strike) => pc.strikethrough(strike))
@@ -32,7 +39,7 @@ export function renderMarkdown(text) {
       inCodeBlock = fence[1].trim() ? true : !inCodeBlock;
       continue;
     }
-    out.push(inCodeBlock ? pc.cyan(line) : renderLine(line));
+    out.push(inCodeBlock ? codeColor(line) : renderLine(line));
   }
 
   return out.join("\n");
