@@ -3,7 +3,7 @@
 import readline from "node:readline";
 import { getApiKey } from "../src/config.js";
 import { sendMessage } from "../src/deepseek.js";
-import { bashTool, runBashCommand } from "../src/tools.js";
+import { bashTool, runBashCommand, findDangerousMatch } from "../src/tools.js";
 
 const line = "─".repeat(42);
 
@@ -35,6 +35,17 @@ const history = [
 const tools = [bashTool];
 const MAX_STEPS = 10;
 
+let pendingConfirmationResolve = null;
+
+function askConfirmation(command, reason) {
+  return new Promise((resolve) => {
+    console.log(`⚠ Похоже на опасную команду (${reason}): ${command}`);
+    pendingConfirmationResolve = resolve;
+    rl.setPrompt("Выполнить? (y/N): ");
+    rl.prompt();
+  });
+}
+
 async function runTurn() {
   for (let step = 0; step < MAX_STEPS; step++) {
     const message = await sendMessage(history, apiKey, tools);
@@ -48,6 +59,20 @@ async function runTurn() {
     for (const toolCall of message.tool_calls) {
       const { command } = JSON.parse(toolCall.function.arguments);
       console.log(`→ ${command}`);
+
+      const danger = findDangerousMatch(command);
+      if (danger) {
+        const answer = await askConfirmation(command, danger);
+        if (!/^(y|yes|да)$/i.test(answer.trim())) {
+          console.log("Отменено пользователем.");
+          history.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: "Команда не выполнена: пользователь отклонил подтверждение.",
+          });
+          continue;
+        }
+      }
 
       const result = await runBashCommand(command);
       const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
@@ -109,7 +134,17 @@ async function processQueue() {
 rl.prompt();
 
 rl.on("line", (input) => {
-  queue.push(input.trim());
+  const text = input.trim();
+
+  if (pendingConfirmationResolve) {
+    const resolve = pendingConfirmationResolve;
+    pendingConfirmationResolve = null;
+    rl.setPrompt("> ");
+    resolve(text);
+    return;
+  }
+
+  queue.push(text);
   processQueue();
 });
 

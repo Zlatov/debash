@@ -22,6 +22,22 @@ export const bashTool = {
   },
 };
 
+const DANGEROUS_PATTERNS = [
+  { label: "rm", regex: /(^|[|;&]|\s)rm\s+/i },
+  { label: "git reset", regex: /\bgit\s+reset\b/i },
+  { label: "force push", regex: /\bgit\s+push\b(?:(?!\n).)*(--force\b|-f\b)/i },
+  {
+    label: "docker compose down -v",
+    regex: /\bdocker(?:\s|-)compose\s+down\b(?:(?!\n).)*(-v\b|--volumes\b)/i,
+  },
+  { label: "drop database/table", regex: /\bdrop\s+(database|table)\b/i },
+];
+
+export function findDangerousMatch(command) {
+  const match = DANGEROUS_PATTERNS.find((pattern) => pattern.regex.test(command));
+  return match ? match.label : null;
+}
+
 export async function runBashCommand(command) {
   try {
     const { stdout, stderr } = await execAsync(command, {
