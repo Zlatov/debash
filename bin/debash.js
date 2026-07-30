@@ -7,15 +7,11 @@ import { sendMessage } from "../src/deepseek.js";
 import { bashTool, saveRecipeTool, runBashCommand, findDangerousMatch } from "../src/tools.js";
 import { loadProjectContext } from "../src/context.js";
 import { loadCache, saveRecipe } from "../src/cache.js";
-import { borderLine, statusIcon, withSpinner } from "../src/ui.js";
+import { statusIcon, withSpinner } from "../src/ui.js";
 import { renderMarkdown } from "../src/markdown.js";
 
 console.log();
-console.log(borderLine());
-console.log();
-console.log(pc.bold("  Debash"));
-console.log();
-console.log(borderLine());
+console.log(pc.bold("❚█══debash══█❚"));
 console.log();
 
 const apiKey = await getApiKey();
@@ -145,13 +141,8 @@ async function runTurn() {
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: "> ",
+  prompt: "❯ ",
 });
-
-function promptForInput() {
-  console.log(borderLine());
-  rl.prompt();
-}
 
 const queue = [];
 let processing = false;
@@ -181,13 +172,13 @@ async function processQueue() {
       }
     }
 
-    promptForInput();
+    rl.prompt();
   }
 
   processing = false;
 }
 
-promptForInput();
+rl.prompt();
 
 rl.on("line", (input) => {
   const text = input.trim();
@@ -195,12 +186,11 @@ rl.on("line", (input) => {
   if (pendingConfirmationResolve) {
     const resolve = pendingConfirmationResolve;
     pendingConfirmationResolve = null;
-    rl.setPrompt("> ");
+    rl.setPrompt("❯ ");
     resolve(text);
     return;
   }
 
-  console.log(borderLine());
   queue.push(text);
   processQueue();
 });

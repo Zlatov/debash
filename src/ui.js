@@ -3,14 +3,6 @@ import pc from "picocolors";
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SPINNER_INTERVAL_MS = 80;
 
-export function terminalWidth() {
-  return process.stdout.columns || 80;
-}
-
-export function borderLine() {
-  return pc.dim("─".repeat(terminalWidth()));
-}
-
 export function statusIcon(success) {
   return success ? pc.green("✔") : pc.red("✖");
 }
