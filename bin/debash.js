@@ -90,7 +90,7 @@ function askConfirmation(command, reason) {
 
 async function runTurn() {
   for (let step = 0; step < MAX_STEPS; step++) {
-    const message = await sendMessage(history, apiKey, tools);
+    const message = await withSpinner(sendMessage(history, apiKey, tools), "думаю...");
     history.push(message);
 
     if (!message.tool_calls || message.tool_calls.length === 0) {

@@ -32,7 +32,7 @@ export function renderMarkdown(text) {
       inCodeBlock = fence[1].trim() ? true : !inCodeBlock;
       continue;
     }
-    out.push(inCodeBlock ? pc.dim(line) : renderLine(line));
+    out.push(inCodeBlock ? pc.cyan(line) : renderLine(line));
   }
 
   return out.join("\n");
